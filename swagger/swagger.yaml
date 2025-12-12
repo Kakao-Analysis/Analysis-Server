@@ -1,0 +1,422 @@
+openapi: 3.0.3
+info:
+  title: Kakao Relationship Analysis API
+  version: 1.0.0
+
+servers:
+  # Added by API Auto Mocking Plugin
+  - description: SwaggerHub API Auto Mocking
+    url: https://virtserver.swaggerhub.com/gcu-cce/kakao-analysis/1.0.0
+  - url: /api
+
+tags:
+  - name: Analyses
+  - name: Files
+  - name: Options
+  - name: Payments
+
+paths:
+  /analysis:
+    post:
+      tags: [Analyses]
+      summary: Create analysis session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnalysisCreateRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalysisCreateResponse'
+
+  /analysis/{sessionUuid}:
+    get:
+      tags: [Analyses]
+      summary: Get analysis status/result
+      parameters:
+        - in: path
+          name: sessionUuid
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Status and result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalysisStatusResponse'
+
+  /analysis/{sessionUuid}/options:
+    patch:
+      tags: [Analyses]
+      summary: Update analysis options
+      parameters:
+        - in: path
+          name: sessionUuid
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnalysisOptionsUpdateRequest'
+      responses:
+        '200':
+          description: Options updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalysisOptionsUpdateResponse'
+
+  /analysis/{sessionUuid}/upload:
+    post:
+      tags: [Files]
+      summary: Upload KakaoTalk txt
+      parameters:
+        - in: path
+          name: sessionUuid
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+              required:
+                - file
+      responses:
+        '200':
+          description: File uploaded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileUploadResponse'
+
+  /analysis/{sessionUuid}/run:
+    post:
+      tags: [Analyses]
+      summary: Run analysis
+      parameters:
+        - in: path
+          name: sessionUuid
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RunAnalysisRequest'
+      responses:
+        '202':
+          description: Analysis started
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RunAnalysisResponse'
+
+  /analysis/{sessionUuid}/payment-status:
+    get:
+      tags: [Payments]
+      summary: Get payment status
+      parameters:
+        - in: path
+          name: sessionUuid
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Payment status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentStatusResponse'
+
+  /options:
+    get:
+      tags: [Options]
+      summary: Get option items
+      parameters:
+        - in: query
+          name: category
+          required: true
+          schema:
+            $ref: '#/components/schemas/OptionCategory'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/OptionItem'
+
+  /payments/start:
+    post:
+      tags: [Payments]
+      summary: Start payment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentStartRequest'
+      responses:
+        '200':
+          description: Payment started
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentStartResponse'
+
+  /payments/webhook:
+    post:
+      tags: [Payments]
+      summary: Payment webhook
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: OK
+
+components:
+  schemas:
+
+    AnalysisStatus:
+      type: string
+      enum: [CREATED, FILE_UPLOADED, PROCESSING, DONE, FAILED]
+
+    OptionCategory:
+      type: string
+      enum: [EMPATHY, SELECT1, SELECT2]
+
+    PaymentStatusEnum:
+      type: string
+      enum: [PENDING, SUCCESS, FAILED]
+
+    PaymentProvider:
+      type: string
+      enum: [toss, kakaopay]
+
+    AnalysisCreateRequest:
+      type: object
+      required: [userName, partnerName, questionText]
+      properties:
+        userName:
+          type: string
+        partnerName:
+          type: string
+        questionText:
+          type: string
+
+    AnalysisCreateResponse:
+      type: object
+      properties:
+        sessionId:
+          type: integer
+        sessionUuid:
+          type: string
+          format: uuid
+        status:
+          $ref: '#/components/schemas/AnalysisStatus'
+        empathyPreviewText:
+          type: string
+
+    AnalysisOptionsUpdateRequest:
+      type: object
+      required: [select1OptionId, select2OptionId]
+      properties:
+        select1OptionId:
+          type: integer
+        select2OptionId:
+          type: integer
+
+    AnalysisOptionsUpdateResponse:
+      type: object
+      properties:
+        sessionUuid:
+          type: string
+        status:
+          $ref: '#/components/schemas/AnalysisStatus'
+
+    FileUploadResponse:
+      type: object
+      properties:
+        sessionUuid:
+          type: string
+        fileId:
+          type: integer
+        status:
+          $ref: '#/components/schemas/AnalysisStatus'
+
+    RunAnalysisRequest:
+      type: object
+      required: [agreeTerms, agreePrivacy]
+      properties:
+        agreeTerms:
+          type: boolean
+        agreePrivacy:
+          type: boolean
+
+    RunAnalysisResponse:
+      type: object
+      properties:
+        sessionUuid:
+          type: string
+        status:
+          $ref: '#/components/schemas/AnalysisStatus'
+
+    OptionItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        category:
+          $ref: '#/components/schemas/OptionCategory'
+        code:
+          type: string
+        label:
+          type: string
+        description:
+          type: string
+          nullable: true
+        sortOrder:
+          type: integer
+        isActive:
+          type: boolean
+
+    SelectedOption:
+      type: object
+      nullable: true
+      properties:
+        id:
+          type: integer
+        label:
+          type: string
+
+    AnalysisStatusResponse:
+      type: object
+      properties:
+        sessionUuid:
+          type: string
+        status:
+          $ref: '#/components/schemas/AnalysisStatus'
+        isPaid:
+          type: boolean
+        userName:
+          type: string
+        partnerName:
+          type: string
+        questionText:
+          type: string
+        empathy:
+          $ref: '#/components/schemas/SelectedOption'
+        select1:
+          $ref: '#/components/schemas/SelectedOption'
+        select2:
+          $ref: '#/components/schemas/SelectedOption'
+        result:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/AnalysisResult'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    AnalysisResult:
+      type: object
+      properties:
+        summaryText:
+          type: string
+        userViewText:
+          type: string
+          nullable: true
+        partnerViewText:
+          type: string
+          nullable: true
+        adviceText:
+          type: string
+          nullable: true
+        scores:
+          type: object
+          properties:
+            positivity:
+              type: integer
+            interest:
+              type: integer
+            balance:
+              type: integer
+        charts:
+          type: object
+          additionalProperties: true
+        details:
+          type: object
+          additionalProperties: true
+
+    PaymentStartRequest:
+      type: object
+      required: [sessionUuid, amount, provider]
+      properties:
+        sessionUuid:
+          type: string
+          format: uuid
+        amount:
+          type: integer
+        provider:
+          $ref: '#/components/schemas/PaymentProvider'
+
+    PaymentStartResponse:
+      type: object
+      properties:
+        paymentId:
+          type: integer
+        sessionUuid:
+          type: string
+        payUrl:
+          type: string
+        status:
+          $ref: '#/components/schemas/PaymentStatusEnum'
+
+    PaymentStatusResponse:
+      type: object
+      properties:
+        sessionUuid:
+          type: string
+        isPaid:
+          type: boolean
+        lastPaymentStatus:
+          $ref: '#/components/schemas/PaymentStatusEnum'
+        lastPaidAt:
+          type: string
+          format: date-time
+          nullable: true
