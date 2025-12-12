@@ -1,100 +1,58 @@
-// src/routes/analyses.js
-const express = require('express');
+const express = require("express");
+const { prisma } = require("../db/prisma");
+const { randomUUID } = require("crypto");
+
 const router = express.Router();
 
 /**
- * @openapi
- * /analyses:
- *   post:
- *     summary: 새 카카오톡 분석 요청 생성
- *     tags:
- *       - Analyses
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               title:
- *                 type: string
- *                 example: "OOO와의 카톡 분석"
- *               periodStart:
- *                 type: string
- *                 format: date-time
- *                 example: "2025-01-01T00:00:00Z"
- *               periodEnd:
- *                 type: string
- *                 format: date-time
- *                 example: "2025-01-31T23:59:59Z"
- *     responses:
- *       201:
- *         description: 분석 생성 성공
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 id:
- *                   type: integer
- *                   example: 123
- *                 status:
- *                   type: string
- *                   example: "CREATED"
+ * POST /api/analysis
+ * 세션 생성 -> DB 저장
  */
-router.post('/', (req, res) => {
-  const { title, periodStart, periodEnd } = req.body;
+router.post("/analysis", async (req, res) => {
+  const sessionUuid = randomUUID();
 
-  console.log('새 분석 요청:', { title, periodStart, periodEnd });
+  const row = await prisma.analysis.create({
+    data: {
+      sessionUuid,
+      status: "DRAFT",
+    },
+  });
 
-  return res.status(201).json({
-    id: 1,
-    status: 'CREATED',
+  res.status(201).json({
+    ok: true,
+    data: {
+      sessionUuid: row.sessionUuid,
+      status: row.status,
+      createdAt: row.createdAt,
+    },
   });
 });
 
 /**
- * @openapi
- * /analyses/{id}:
- *   get:
- *     summary: 분석 요약 조회
- *     tags:
- *       - Analyses
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: integer
- *         description: 분석 ID
- *     responses:
- *       200:
- *         description: 분석 요약 정보
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 id:
- *                   type: integer
- *                   example: 1
- *                 status:
- *                   type: string
- *                   example: "SUMMARY_READY"
- *                 isPaid:
- *                   type: boolean
- *                 emotionScore:
- *                   type: integer
- *                   example: 72
+ * GET /api/analysis/:sessionUuid
+ * 세션 조회 -> DB 조회
  */
-router.get('/:id', (req, res) => {
-  const { id } = req.params;
+router.get("/analysis/:sessionUuid", async (req, res) => {
+  const { sessionUuid } = req.params;
 
-  return res.json({
-    id: Number(id),
-    status: 'SUMMARY_READY',
-    isPaid: false,
-    emotionScore: 72,
+  const row = await prisma.analysis.findUnique({
+    where: { sessionUuid },
+  });
+
+  if (!row) {
+    return res.status(404).json({ ok: false, error: "NOT_FOUND" });
+  }
+
+  res.json({
+    ok: true,
+    data: {
+      sessionUuid: row.sessionUuid,
+      status: row.status,
+      optionsJson: row.optionsJson ? JSON.parse(row.optionsJson) : null,
+      resultJson: row.resultJson ? JSON.parse(row.resultJson) : null,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+    },
   });
 });
 
