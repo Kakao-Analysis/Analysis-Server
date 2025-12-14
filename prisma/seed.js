@@ -2,6 +2,9 @@ const { PrismaClient } = require("@prisma/client");
 
 const prisma = new PrismaClient();
 
+/**
+ * Seed the OptionItem table by removing existing records and inserting predefined items for EMPATHY, SELECT1, and SELECT2 categories.
+ */
 async function main() {
   // 기존 데이터 삭제 (재실행 시)
   await prisma.optionItem.deleteMany({});
@@ -99,4 +102,3 @@ main()
   .finally(async () => {
     await prisma.$disconnect();
   });
-
