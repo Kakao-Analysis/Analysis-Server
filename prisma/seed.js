@@ -2,6 +2,9 @@ const { PrismaClient } = require("@prisma/client");
 
 const prisma = new PrismaClient();
 
+/**
+ * Seed the OptionItem table by removing existing records and inserting predefined items for EMPATHY, SELECT1, and SELECT2 categories.
+ */
 async function main() {
   // Production 환경 가드
   if (process.env.NODE_ENV === "production") {
@@ -161,4 +164,3 @@ main()
   .finally(async () => {
     await prisma.$disconnect();
   });
-

@@ -5,6 +5,41 @@ const { randomUUID } = require("crypto");
 const router = express.Router();
 
 /**
+ * OptionItem 검증 헬퍼 함수
+ * @param {number} optionId - 검증할 OptionItem의 ID
+ * @param {string} expectedCategory - 기대하는 category (SELECT1 또는 SELECT2)
+ * @returns {Promise<{error: string | null, option: any}>} - 에러가 있으면 error, 없으면 option 반환
+ */
+async function validateOptionItem(optionId, expectedCategory) {
+  const option = await prisma.optionItem.findUnique({
+    where: { id: optionId },
+  });
+
+  if (!option) {
+    return {
+      error: `OptionItem with id ${optionId} not found`,
+      option: null,
+    };
+  }
+
+  if (!option.isActive) {
+    return {
+      error: `OptionItem with id ${optionId} is not active`,
+      option: null,
+    };
+  }
+
+  if (option.category !== expectedCategory) {
+    return {
+      error: `OptionItem with id ${optionId} has category ${option.category}, expected ${expectedCategory}`,
+      option: null,
+    };
+  }
+
+  return { error: null, option };
+}
+
+/**
  * POST /api/analysis
  * 세션 생성 -> DB 저장
  */
@@ -134,6 +169,109 @@ router.get("/options", async (req, res) => {
     res.status(500).json({
       error: "Internal Server Error",
       message: "Failed to fetch option items",
+    });
+  }
+});
+
+/**
+ * PATCH /api/analysis/:sessionUuid/options
+ * 분석 옵션 업데이트
+ */
+router.patch("/analysis/:sessionUuid/options", async (req, res) => {
+  const { sessionUuid } = req.params;
+  const { select1OptionId, select2OptionId } = req.body;
+
+  try {
+    // Validation: Body 필수값 검증
+    if (
+      select1OptionId === undefined ||
+      select2OptionId === undefined ||
+      typeof select1OptionId !== "number" ||
+      typeof select2OptionId !== "number"
+    ) {
+      return res.status(400).json({
+        error: "Bad Request",
+        message: "select1OptionId and select2OptionId are required and must be numbers",
+      });
+    }
+
+    // Analysis 조회
+    const analysis = await prisma.analysis.findUnique({
+      where: { sessionUuid },
+    });
+
+    if (!analysis) {
+      return res.status(404).json({ ok: false, error: "NOT_FOUND" });
+    }
+
+    // OptionItem 검증: select1OptionId
+    const select1Validation = await validateOptionItem(
+      select1OptionId,
+      "SELECT1"
+    );
+    if (select1Validation.error) {
+      return res.status(400).json({
+        error: "Bad Request",
+        message: select1Validation.error,
+      });
+    }
+    const select1Option = select1Validation.option;
+
+    // OptionItem 검증: select2OptionId
+    const select2Validation = await validateOptionItem(
+      select2OptionId,
+      "SELECT2"
+    );
+    if (select2Validation.error) {
+      return res.status(400).json({
+        error: "Bad Request",
+        message: select2Validation.error,
+      });
+    }
+    const select2Option = select2Validation.option;
+
+    // 기존 optionsJson 파싱 (있으면 merge)
+    let optionsJson = {};
+    if (analysis.optionsJson) {
+      try {
+        optionsJson = JSON.parse(analysis.optionsJson);
+      } catch (error) {
+        console.error(
+          `Error parsing existing optionsJson for sessionUuid: ${sessionUuid}`,
+          error
+        );
+        // 파싱 실패 시 빈 객체로 시작
+        optionsJson = {};
+      }
+    }
+
+    // select1, select2 업데이트 (empathy는 기존 값 유지)
+    optionsJson.select1 = {
+      id: select1Option.id,
+      label: select1Option.label,
+    };
+    optionsJson.select2 = {
+      id: select2Option.id,
+      label: select2Option.label,
+    };
+
+    // Analysis 업데이트
+    const updatedAnalysis = await prisma.analysis.update({
+      where: { sessionUuid },
+      data: {
+        optionsJson: JSON.stringify(optionsJson),
+      },
+    });
+
+    res.status(200).json({
+      sessionUuid: updatedAnalysis.sessionUuid,
+      status: updatedAnalysis.status,
+    });
+  } catch (error) {
+    console.error("Error updating analysis options:", error);
+    res.status(500).json({
+      error: "Internal Server Error",
+      message: "Failed to update analysis options",
     });
   }
 });
