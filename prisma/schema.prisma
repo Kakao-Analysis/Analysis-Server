@@ -8,6 +8,7 @@ datasource db {
 }
 
 model Analysis {
+<<<<<<< HEAD
   id                 Int      @id @default(autoincrement())
   sessionUuid        String   @unique
   status             String   @default("CREATED")
@@ -19,4 +20,13 @@ model Analysis {
   resultJson         String?
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
+=======
+  id          Int      @id @default(autoincrement())
+  sessionUuid String   @unique
+  status      String   @default("DRAFT")
+  optionsJson String?
+  resultJson  String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+>>>>>>> parent of f5b8484 (feat: 분석 세션 생성 API 구현)
 }
