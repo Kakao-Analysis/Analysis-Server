@@ -99,25 +99,42 @@ router.post("/analysis", async (req, res) => {
 router.get("/analysis/:sessionUuid", async (req, res) => {
   const { sessionUuid } = req.params;
 
-  const row = await prisma.analysis.findUnique({
-    where: { sessionUuid },
-  });
+  try {
+    const row = await prisma.analysis.findUnique({
+      where: { sessionUuid },
+    });
 
-  if (!row) {
-    return res.status(404).json({ ok: false, error: "NOT_FOUND" });
+    if (!row) {
+      return res.status(404).json({ ok: false, error: "NOT_FOUND" });
+    }
+
+    // 최신 Payment 조회하여 isPaid 계산
+    const latestPayment = await prisma.payment.findFirst({
+      where: { sessionUuid },
+      orderBy: { createdAt: "desc" },
+    });
+
+    const isPaid = latestPayment?.status === "SUCCESS" || false;
+
+    res.json({
+      ok: true,
+      data: {
+        sessionUuid: row.sessionUuid,
+        status: row.status,
+        optionsJson: row.optionsJson ? JSON.parse(row.optionsJson) : null,
+        resultJson: row.resultJson ? JSON.parse(row.resultJson) : null,
+        createdAt: row.createdAt,
+        updatedAt: row.updatedAt,
+        isPaid,
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching analysis:", error);
+    res.status(500).json({
+      error: "Internal Server Error",
+      message: "Failed to fetch analysis",
+    });
   }
-
-  res.json({
-    ok: true,
-    data: {
-      sessionUuid: row.sessionUuid,
-      status: row.status,
-      optionsJson: row.optionsJson ? JSON.parse(row.optionsJson) : null,
-      resultJson: row.resultJson ? JSON.parse(row.resultJson) : null,
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
-    },
-  });
 });
 
 /**
@@ -529,6 +546,186 @@ router.post("/analysis/:sessionUuid/run", async (req, res) => {
     res.status(500).json({
       error: "Internal Server Error",
       message: "Failed to run analysis",
+    });
+  }
+});
+
+/**
+ * POST /api/payments/start
+ * 결제 시작
+ */
+router.post("/payments/start", async (req, res) => {
+  const { sessionUuid, amount, provider } = req.body;
+
+  try {
+    // Validation: sessionUuid 유효성 확인
+    const analysis = await prisma.analysis.findUnique({
+      where: { sessionUuid },
+    });
+
+    if (!analysis) {
+      return res.status(404).json({ ok: false, error: "NOT_FOUND" });
+    }
+
+    // Validation: amount는 number이고 0보다 커야 함
+    if (typeof amount !== "number" || amount <= 0) {
+      return res.status(400).json({
+        error: "Bad Request",
+        message: "amount must be a positive number",
+      });
+    }
+
+    // Validation: provider는 'toss' | 'kakaopay'만 허용
+    const validProviders = ["toss", "kakaopay"];
+    if (!validProviders.includes(provider)) {
+      return res.status(400).json({
+        error: "Bad Request",
+        message: `provider must be one of: ${validProviders.join(", ")}`,
+      });
+    }
+
+    // Payment row 생성 (status=PENDING)
+    // payUrl은 paymentId가 필요하므로, 먼저 생성 후 업데이트
+    const payment = await prisma.payment.create({
+      data: {
+        sessionUuid,
+        amount,
+        provider,
+        status: "PENDING",
+      },
+    });
+
+    // payUrl 업데이트 (paymentId 필요)
+    const updatedPayment = await prisma.payment.update({
+      where: { id: payment.id },
+      data: {
+        payUrl: `http://localhost:3000/payments/mock/${payment.id}`,
+      },
+    });
+
+    res.status(200).json({
+      paymentId: updatedPayment.id,
+      sessionUuid: updatedPayment.sessionUuid,
+      payUrl: updatedPayment.payUrl,
+      status: updatedPayment.status,
+    });
+  } catch (error) {
+    console.error("Error starting payment:", error);
+    res.status(500).json({
+      error: "Internal Server Error",
+      message: "Failed to start payment",
+    });
+  }
+});
+
+/**
+ * POST /api/payments/webhook
+ * 결제 웹훅 (스텁)
+ */
+router.post("/payments/webhook", async (req, res) => {
+  try {
+    const { paymentId, status } = req.body;
+
+    // Validation: paymentId가 없으면 400
+    if (paymentId === undefined || paymentId === null) {
+      return res.status(400).json({
+        error: "Bad Request",
+        message: "paymentId is required",
+      });
+    }
+
+    // Validation: paymentId로 Payment 찾기
+    const payment = await prisma.payment.findUnique({
+      where: { id: paymentId },
+    });
+
+    if (!payment) {
+      return res.status(404).json({
+        error: "Not Found",
+        message: `Payment with id ${paymentId} not found`,
+      });
+    }
+
+    // Validation: status가 SUCCESS 또는 FAILED인지 확인
+    if (status === "SUCCESS") {
+      await prisma.payment.update({
+        where: { id: paymentId },
+        data: {
+          status: "SUCCESS",
+          paidAt: new Date(),
+          rawPayloadJson: JSON.stringify(req.body),
+        },
+      });
+    } else if (status === "FAILED") {
+      await prisma.payment.update({
+        where: { id: paymentId },
+        data: {
+          status: "FAILED",
+          rawPayloadJson: JSON.stringify(req.body),
+        },
+      });
+    } else {
+      return res.status(400).json({
+        error: "Bad Request",
+        message: `status must be SUCCESS or FAILED, got: ${status}`,
+      });
+    }
+
+    res.status(200).json({ ok: true });
+  } catch (error) {
+    console.error("Error processing payment webhook:", error);
+    res.status(500).json({
+      error: "Internal Server Error",
+      message: "Failed to process payment webhook",
+    });
+  }
+});
+
+/**
+ * GET /api/analysis/:sessionUuid/payment-status
+ * 결제 상태 조회
+ */
+router.get("/analysis/:sessionUuid/payment-status", async (req, res) => {
+  const { sessionUuid } = req.params;
+
+  try {
+    // Analysis 존재 확인
+    const analysis = await prisma.analysis.findUnique({
+      where: { sessionUuid },
+    });
+
+    if (!analysis) {
+      return res.status(404).json({ ok: false, error: "NOT_FOUND" });
+    }
+
+    // 해당 sessionUuid의 최신 Payment 조회
+    const latestPayment = await prisma.payment.findFirst({
+      where: { sessionUuid },
+      orderBy: { createdAt: "desc" },
+    });
+
+    if (!latestPayment) {
+      return res.status(200).json({
+        sessionUuid,
+        isPaid: false,
+        lastPaymentStatus: "PENDING",
+        lastPaidAt: null,
+      });
+    }
+
+    res.status(200).json({
+      sessionUuid,
+      isPaid: latestPayment.status === "SUCCESS",
+      lastPaymentStatus: latestPayment.status,
+      lastPaidAt: latestPayment.paidAt
+        ? latestPayment.paidAt.toISOString()
+        : null,
+    });
+  } catch (error) {
+    console.error("Error fetching payment status:", error);
+    res.status(500).json({
+      error: "Internal Server Error",
+      message: "Failed to fetch payment status",
     });
   }
 });
