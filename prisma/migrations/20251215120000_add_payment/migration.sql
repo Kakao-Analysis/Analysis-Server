@@ -16,3 +16,5 @@ CREATE TABLE "Payment" (
 -- CreateIndex
 CREATE INDEX "Payment_sessionUuid_createdAt_idx" ON "Payment"("sessionUuid", "createdAt");
 
+
+
