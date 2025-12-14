@@ -432,68 +432,84 @@ router.post("/analysis/:sessionUuid/run", async (req, res) => {
       },
     });
 
-    // 파일 읽기 및 최소 파싱 (stub)
-    let lineCount = 0;
-    let messageCount = 0;
-    let participants = ["나", "상대"];
-
-    try {
-      const fileContent = fs.readFileSync(latestFile.storedPath, "utf-8");
-      const lines = fileContent.split("\n").filter((line) => line.trim() !== "");
-      lineCount = lines.length;
-      messageCount = lineCount;
-
-      // 간단한 파싱 시도 (카카오톡 대화 형식)
-      // 예: "2024. 1. 1. 오후 1:00, 나: 안녕"
-      const participantSet = new Set();
-      for (const line of lines) {
-        // 간단한 패턴 매칭 시도
-        const match = line.match(/,\s*([^:]+):\s*(.+)/);
-        if (match) {
-          participantSet.add(match[1].trim());
-        }
-      }
-
-      if (participantSet.size > 0) {
-        participants = Array.from(participantSet);
-      }
-    } catch (fileError) {
-      console.error("Error reading file:", fileError);
-      // 파싱 실패 시 기본값 유지
-    }
-
-    // 결과 객체 생성
-    const resultObject = {
-      summaryText: `총 ${lineCount}줄의 대화를 분석했습니다.`,
-      userViewText: null,
-      partnerViewText: null,
-      adviceText: null,
-      scores: {
-        positivity: 50,
-        interest: 50,
-        balance: 50,
-      },
-      charts: {},
-      details: {
-        lineCount,
-        messageCount,
-        participants,
-      },
-    };
-
-    // resultJson 저장 및 status를 "DONE"으로 업데이트
-    await prisma.analysis.update({
-      where: { sessionUuid },
-      data: {
-        resultJson: JSON.stringify(resultObject),
-        status: "DONE",
-      },
-    });
-
-    // 응답은 202 + PROCESSING 상태로 반환 (스펙 준수)
+    // 응답을 먼저 반환 (202 + PROCESSING)
     res.status(202).json({
       sessionUuid: sessionUuid,
       status: "PROCESSING",
+    });
+
+    // 파일 읽기, 파싱, DB 업데이트는 백그라운드에서 비동기로 처리
+    setImmediate(async () => {
+      try {
+        // 파일 읽기 (비동기)
+        const fileContent = await fs.promises.readFile(
+          latestFile.storedPath,
+          "utf-8"
+        );
+        const lines = fileContent
+          .split("\n")
+          .filter((line) => line.trim() !== "");
+        const lineCount = lines.length;
+        const messageCount = lineCount;
+
+        // 간단한 파싱 시도 (카카오톡 대화 형식)
+        // 예: "2024. 1. 1. 오후 1:00, 나: 안녕"
+        let participants = ["나", "상대"];
+        const participantSet = new Set();
+        for (const line of lines) {
+          // 간단한 패턴 매칭 시도
+          const match = line.match(/,\s*([^:]+):\s*(.+)/);
+          if (match) {
+            participantSet.add(match[1].trim());
+          }
+        }
+
+        if (participantSet.size > 0) {
+          participants = Array.from(participantSet);
+        }
+
+        // 결과 객체 생성
+        const resultObject = {
+          summaryText: `총 ${lineCount}줄의 대화를 분석했습니다.`,
+          userViewText: null,
+          partnerViewText: null,
+          adviceText: null,
+          scores: {
+            positivity: 50,
+            interest: 50,
+            balance: 50,
+          },
+          charts: {},
+          details: {
+            lineCount,
+            messageCount,
+            participants,
+          },
+        };
+
+        // resultJson 저장 및 status를 "DONE"으로 업데이트
+        await prisma.analysis.update({
+          where: { sessionUuid },
+          data: {
+            resultJson: JSON.stringify(resultObject),
+            status: "DONE",
+          },
+        });
+      } catch (backgroundError) {
+        console.error("Error in background analysis processing:", backgroundError);
+
+        // 에러 발생 시 status를 "FAILED"로 업데이트
+        try {
+          await prisma.analysis.update({
+            where: { sessionUuid },
+            data: {
+              status: "FAILED",
+            },
+          });
+        } catch (updateError) {
+          console.error("Error updating status to FAILED:", updateError);
+        }
+      }
     });
   } catch (error) {
     console.error("Error running analysis:", error);
