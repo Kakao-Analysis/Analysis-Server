@@ -9,23 +9,44 @@ const router = express.Router();
  * 세션 생성 -> DB 저장
  */
 router.post("/analysis", async (req, res) => {
+  const { userName, partnerName, questionText } = req.body;
+
+  // Validation: 3개 필드 모두 필수
+  if (!userName || !partnerName || !questionText) {
+    return res.status(400).json({
+      error: "Bad Request",
+      message: "userName, partnerName, questionText are required",
+    });
+  }
+
   const sessionUuid = randomUUID();
+  const empathyPreviewText = "지금 대화를 차분히 살펴보고 있어요.";
 
-  const row = await prisma.analysis.create({
-    data: {
-      sessionUuid,
-      status: "DRAFT",
-    },
-  });
+  try {
+    const row = await prisma.analysis.create({
+      data: {
+        sessionUuid,
+        status: "CREATED",
+        userName,
+        partnerName,
+        questionText,
+        empathyPreviewText,
+      },
+    });
 
-  res.status(201).json({
-    ok: true,
-    data: {
+    res.status(201).json({
+      sessionId: row.id,
       sessionUuid: row.sessionUuid,
       status: row.status,
-      createdAt: row.createdAt,
-    },
-  });
+      empathyPreviewText: row.empathyPreviewText,
+    });
+  } catch (error) {
+    console.error("Error creating analysis session:", error);
+    res.status(500).json({
+      error: "Internal Server Error",
+      message: "Failed to create analysis session",
+    });
+  }
 });
 
 /**
@@ -35,25 +56,69 @@ router.post("/analysis", async (req, res) => {
 router.get("/analysis/:sessionUuid", async (req, res) => {
   const { sessionUuid } = req.params;
 
-  const row = await prisma.analysis.findUnique({
-    where: { sessionUuid },
-  });
+  try {
+    const row = await prisma.analysis.findUnique({
+      where: { sessionUuid },
+    });
 
-  if (!row) {
-    return res.status(404).json({ ok: false, error: "NOT_FOUND" });
-  }
+    if (!row) {
+      return res.status(404).json({ error: "Not Found" });
+    }
 
-  res.json({
-    ok: true,
-    data: {
+    // optionsJson에서 empathy, select1, select2 추출
+    let empathy = null;
+    let select1 = null;
+    let select2 = null;
+    if (row.optionsJson) {
+      try {
+        const options = JSON.parse(row.optionsJson);
+        empathy = options.empathy || null;
+        select1 = options.select1 || null;
+        select2 = options.select2 || null;
+      } catch (error) {
+        console.error(
+          `Error parsing optionsJson for sessionUuid: ${row.sessionUuid}, id: ${row.id}`,
+          error
+        );
+        // empathy, select1, select2는 null 유지
+      }
+    }
+
+    // resultJson에서 result 추출
+    let result = null;
+    if (row.resultJson) {
+      try {
+        result = JSON.parse(row.resultJson);
+      } catch (error) {
+        console.error(
+          `Error parsing resultJson for sessionUuid: ${row.sessionUuid}, id: ${row.id}`,
+          error
+        );
+        // result는 null 유지
+      }
+    }
+
+    res.json({
       sessionUuid: row.sessionUuid,
       status: row.status,
-      optionsJson: row.optionsJson ? JSON.parse(row.optionsJson) : null,
-      resultJson: row.resultJson ? JSON.parse(row.resultJson) : null,
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
-    },
-  });
+      isPaid: false, // TODO: payment 테이블 연동 시 구현
+      userName: row.userName,
+      partnerName: row.partnerName,
+      questionText: row.questionText,
+      empathy,
+      select1,
+      select2,
+      result,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
+    });
+  } catch (error) {
+    console.error("Error fetching analysis session:", error);
+    res.status(500).json({
+      error: "Internal Server Error",
+      message: "Failed to fetch analysis session",
+    });
+  }
 });
 
 module.exports = router;
