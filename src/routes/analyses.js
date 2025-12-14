@@ -70,16 +70,32 @@ router.get("/analysis/:sessionUuid", async (req, res) => {
     let select1 = null;
     let select2 = null;
     if (row.optionsJson) {
-      const options = JSON.parse(row.optionsJson);
-      empathy = options.empathy || null;
-      select1 = options.select1 || null;
-      select2 = options.select2 || null;
+      try {
+        const options = JSON.parse(row.optionsJson);
+        empathy = options.empathy || null;
+        select1 = options.select1 || null;
+        select2 = options.select2 || null;
+      } catch (error) {
+        console.error(
+          `Error parsing optionsJson for sessionUuid: ${row.sessionUuid}, id: ${row.id}`,
+          error
+        );
+        // empathy, select1, select2는 null 유지
+      }
     }
 
     // resultJson에서 result 추출
     let result = null;
     if (row.resultJson) {
-      result = JSON.parse(row.resultJson);
+      try {
+        result = JSON.parse(row.resultJson);
+      } catch (error) {
+        console.error(
+          `Error parsing resultJson for sessionUuid: ${row.sessionUuid}, id: ${row.id}`,
+          error
+        );
+        // result는 null 유지
+      }
     }
 
     res.json({
