@@ -5,6 +5,41 @@ const { randomUUID } = require("crypto");
 const router = express.Router();
 
 /**
+ * OptionItem 검증 헬퍼 함수
+ * @param {number} optionId - 검증할 OptionItem의 ID
+ * @param {string} expectedCategory - 기대하는 category (SELECT1 또는 SELECT2)
+ * @returns {Promise<{error: string | null, option: any}>} - 에러가 있으면 error, 없으면 option 반환
+ */
+async function validateOptionItem(optionId, expectedCategory) {
+  const option = await prisma.optionItem.findUnique({
+    where: { id: optionId },
+  });
+
+  if (!option) {
+    return {
+      error: `OptionItem with id ${optionId} not found`,
+      option: null,
+    };
+  }
+
+  if (!option.isActive) {
+    return {
+      error: `OptionItem with id ${optionId} is not active`,
+      option: null,
+    };
+  }
+
+  if (option.category !== expectedCategory) {
+    return {
+      error: `OptionItem with id ${optionId} has category ${option.category}, expected ${expectedCategory}`,
+      option: null,
+    };
+  }
+
+  return { error: null, option };
+}
+
+/**
  * POST /api/analysis
  * 세션 생성 -> DB 저장
  */
@@ -166,60 +201,34 @@ router.patch("/analysis/:sessionUuid/options", async (req, res) => {
     });
 
     if (!analysis) {
-      return res.status(404).json({ error: "Not Found" });
+      return res.status(404).json({ ok: false, error: "NOT_FOUND" });
     }
 
     // OptionItem 검증: select1OptionId
-    const select1Option = await prisma.optionItem.findUnique({
-      where: { id: select1OptionId },
-    });
-
-    if (!select1Option) {
+    const select1Validation = await validateOptionItem(
+      select1OptionId,
+      "SELECT1"
+    );
+    if (select1Validation.error) {
       return res.status(400).json({
         error: "Bad Request",
-        message: `OptionItem with id ${select1OptionId} not found`,
+        message: select1Validation.error,
       });
     }
-
-    if (!select1Option.isActive) {
-      return res.status(400).json({
-        error: "Bad Request",
-        message: `OptionItem with id ${select1OptionId} is not active`,
-      });
-    }
-
-    if (select1Option.category !== "SELECT1") {
-      return res.status(400).json({
-        error: "Bad Request",
-        message: `OptionItem with id ${select1OptionId} has category ${select1Option.category}, expected SELECT1`,
-      });
-    }
+    const select1Option = select1Validation.option;
 
     // OptionItem 검증: select2OptionId
-    const select2Option = await prisma.optionItem.findUnique({
-      where: { id: select2OptionId },
-    });
-
-    if (!select2Option) {
+    const select2Validation = await validateOptionItem(
+      select2OptionId,
+      "SELECT2"
+    );
+    if (select2Validation.error) {
       return res.status(400).json({
         error: "Bad Request",
-        message: `OptionItem with id ${select2OptionId} not found`,
+        message: select2Validation.error,
       });
     }
-
-    if (!select2Option.isActive) {
-      return res.status(400).json({
-        error: "Bad Request",
-        message: `OptionItem with id ${select2OptionId} is not active`,
-      });
-    }
-
-    if (select2Option.category !== "SELECT2") {
-      return res.status(400).json({
-        error: "Bad Request",
-        message: `OptionItem with id ${select2OptionId} has category ${select2Option.category}, expected SELECT2`,
-      });
-    }
+    const select2Option = select2Validation.option;
 
     // 기존 optionsJson 파싱 (있으면 merge)
     let optionsJson = {};
