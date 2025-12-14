@@ -20,7 +20,8 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 // 3) 실제 API 라우트
 app.use('/api', analysesRouter);
 
-// 4) 건강 체크용
+// 4) 서버 상태 체크용
+
 app.get('/ping', (req, res) => {
   res.json({ message: 'pong' });
 });
