@@ -21,6 +21,7 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 app.use('/api', analysesRouter);
 
 // 4) 서버 상태 체크용
+
 app.get('/ping', (req, res) => {
   res.json({ message: 'pong' });
 });
