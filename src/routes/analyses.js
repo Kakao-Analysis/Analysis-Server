@@ -138,4 +138,133 @@ router.get("/options", async (req, res) => {
   }
 });
 
+/**
+ * PATCH /api/analysis/:sessionUuid/options
+ * 분석 옵션 업데이트
+ */
+router.patch("/analysis/:sessionUuid/options", async (req, res) => {
+  const { sessionUuid } = req.params;
+  const { select1OptionId, select2OptionId } = req.body;
+
+  try {
+    // Validation: Body 필수값 검증
+    if (
+      select1OptionId === undefined ||
+      select2OptionId === undefined ||
+      typeof select1OptionId !== "number" ||
+      typeof select2OptionId !== "number"
+    ) {
+      return res.status(400).json({
+        error: "Bad Request",
+        message: "select1OptionId and select2OptionId are required and must be numbers",
+      });
+    }
+
+    // Analysis 조회
+    const analysis = await prisma.analysis.findUnique({
+      where: { sessionUuid },
+    });
+
+    if (!analysis) {
+      return res.status(404).json({ error: "Not Found" });
+    }
+
+    // OptionItem 검증: select1OptionId
+    const select1Option = await prisma.optionItem.findUnique({
+      where: { id: select1OptionId },
+    });
+
+    if (!select1Option) {
+      return res.status(400).json({
+        error: "Bad Request",
+        message: `OptionItem with id ${select1OptionId} not found`,
+      });
+    }
+
+    if (!select1Option.isActive) {
+      return res.status(400).json({
+        error: "Bad Request",
+        message: `OptionItem with id ${select1OptionId} is not active`,
+      });
+    }
+
+    if (select1Option.category !== "SELECT1") {
+      return res.status(400).json({
+        error: "Bad Request",
+        message: `OptionItem with id ${select1OptionId} has category ${select1Option.category}, expected SELECT1`,
+      });
+    }
+
+    // OptionItem 검증: select2OptionId
+    const select2Option = await prisma.optionItem.findUnique({
+      where: { id: select2OptionId },
+    });
+
+    if (!select2Option) {
+      return res.status(400).json({
+        error: "Bad Request",
+        message: `OptionItem with id ${select2OptionId} not found`,
+      });
+    }
+
+    if (!select2Option.isActive) {
+      return res.status(400).json({
+        error: "Bad Request",
+        message: `OptionItem with id ${select2OptionId} is not active`,
+      });
+    }
+
+    if (select2Option.category !== "SELECT2") {
+      return res.status(400).json({
+        error: "Bad Request",
+        message: `OptionItem with id ${select2OptionId} has category ${select2Option.category}, expected SELECT2`,
+      });
+    }
+
+    // 기존 optionsJson 파싱 (있으면 merge)
+    let optionsJson = {};
+    if (analysis.optionsJson) {
+      try {
+        optionsJson = JSON.parse(analysis.optionsJson);
+      } catch (error) {
+        console.error(
+          `Error parsing existing optionsJson for sessionUuid: ${sessionUuid}`,
+          error
+        );
+        // 파싱 실패 시 빈 객체로 시작
+        optionsJson = {};
+      }
+    }
+
+    // select1, select2 업데이트 (empathy는 기존 값 유지)
+    optionsJson.select1 = {
+      id: select1Option.id,
+      label: select1Option.label,
+    };
+    optionsJson.select2 = {
+      id: select2Option.id,
+      label: select2Option.label,
+    };
+
+    // Analysis 업데이트
+    const updatedAnalysis = await prisma.analysis.update({
+      where: { sessionUuid },
+      data: {
+        optionsJson: JSON.stringify(optionsJson),
+      },
+    });
+
+    res.status(200).json({
+      sessionUuid: updatedAnalysis.sessionUuid,
+      status: updatedAnalysis.status,
+    });
+  } catch (error) {
+    console.error("Error updating analysis options:", error);
+    res.status(500).json({
+      error: "Internal Server Error",
+      message: "Failed to update analysis options",
+    });
+  }
+});
+
 module.exports = router;
