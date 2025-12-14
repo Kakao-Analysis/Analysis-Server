@@ -16,3 +16,18 @@ model Analysis {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
+
+model OptionItem {
+  id          Int     @id @default(autoincrement())
+  category    String
+  code        String
+  label       String
+  description String?
+  sortOrder   Int     @default(0)
+  isActive    Boolean @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([category, code])
+  @@index([category, sortOrder, id])
+}

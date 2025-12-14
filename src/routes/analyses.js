@@ -56,4 +56,86 @@ router.get("/analysis/:sessionUuid", async (req, res) => {
   });
 });
 
+/**
+ * GET /api/options
+ * 옵션 아이템 조회
+ */
+router.get("/options", async (req, res) => {
+  let { category } = req.query;
+
+  // Validation: category는 필수
+  if (!category) {
+    return res.status(400).json({
+      error: "Bad Request",
+      message: "category query parameter is required",
+    });
+  }
+
+  // Validation: category가 배열이면 400
+  if (Array.isArray(category)) {
+    return res.status(400).json({
+      error: "Bad Request",
+      message: "category must be a single value, not an array",
+    });
+  }
+
+  // Validation: category가 string이 아니면 400
+  if (typeof category !== "string") {
+    return res.status(400).json({
+      error: "Bad Request",
+      message: "category must be a string",
+    });
+  }
+
+  // 정규화: trim 후 빈 문자열이면 400
+  category = category.trim();
+  if (category === "") {
+    return res.status(400).json({
+      error: "Bad Request",
+      message: "category cannot be empty",
+    });
+  }
+
+  // 정규화: 대문자로 변환
+  category = category.toUpperCase();
+
+  // Validation: category 값은 EMPATHY | SELECT1 | SELECT2 만 허용
+  const validCategories = ["EMPATHY", "SELECT1", "SELECT2"];
+  if (!validCategories.includes(category)) {
+    return res.status(400).json({
+      error: "Bad Request",
+      message: `category must be one of: ${validCategories.join(", ")}`,
+    });
+  }
+
+  try {
+    const items = await prisma.optionItem.findMany({
+      where: {
+        category: category,
+      },
+      orderBy: [
+        { sortOrder: "asc" },
+        { id: "asc" },
+      ],
+      select: {
+        id: true,
+        category: true,
+        code: true,
+        label: true,
+        description: true,
+        sortOrder: true,
+        isActive: true,
+      },
+    });
+
+    res.json(items);
+  } catch (error) {
+    console.error("Error fetching option items:", error);
+    res.status(500).json({
+      error: "Internal Server Error",
+      message: "Failed to fetch option items",
+    });
+  }
+});
+
 module.exports = router;
