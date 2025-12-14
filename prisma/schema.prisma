@@ -16,6 +16,7 @@ model Analysis {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   files       AnalysisFile[]
+  payments    Payment[]
 }
 
 model OptionItem {
@@ -44,4 +45,20 @@ model AnalysisFile {
   analysis    Analysis @relation(fields: [sessionUuid], references: [sessionUuid], onDelete: Cascade)
 
   @@index([sessionUuid])
+}
+
+model Payment {
+  id            Int       @id @default(autoincrement())
+  sessionUuid   String
+  amount        Int
+  provider      String
+  status        String    @default("PENDING")
+  payUrl        String?
+  paidAt        DateTime?
+  rawPayloadJson String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  analysis      Analysis  @relation(fields: [sessionUuid], references: [sessionUuid], onDelete: Cascade)
+
+  @@index([sessionUuid, createdAt])
 }
