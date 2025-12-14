@@ -324,16 +324,10 @@ router.post(
         });
       }
 
-      // Validation: 파일 확장자/타입 검증 (.txt 또는 text/plain)
-      const allowedExtensions = [".txt"];
-      const allowedMimeTypes = ["text/plain"];
+      // Validation: 파일 확장자 검증 (.txt만 허용)
       const fileExt = path.extname(req.file.originalname).toLowerCase();
-      const mimeType = req.file.mimetype;
 
-      if (
-        !allowedExtensions.includes(fileExt) &&
-        !allowedMimeTypes.includes(mimeType)
-      ) {
+      if (fileExt !== ".txt") {
         // 업로드된 파일 삭제
         fs.unlinkSync(req.file.path);
         return res.status(400).json({
@@ -353,24 +347,24 @@ router.post(
         return res.status(404).json({ ok: false, error: "NOT_FOUND" });
       }
 
-      // AnalysisFile 생성
-      const fileRecord = await prisma.analysisFile.create({
-        data: {
-          sessionUuid: sessionUuid,
-          originalName: req.file.originalname,
-          storedPath: req.file.path,
-          size: req.file.size,
-          mimeType: req.file.mimetype || "text/plain",
-        },
-      });
-
-      // Analysis.status를 "FILE_UPLOADED"로 업데이트
-      const updatedAnalysis = await prisma.analysis.update({
-        where: { sessionUuid },
-        data: {
-          status: "FILE_UPLOADED",
-        },
-      });
+      // AnalysisFile 생성과 Analysis.status 업데이트를 트랜잭션으로 처리
+      const [fileRecord, updatedAnalysis] = await prisma.$transaction([
+        prisma.analysisFile.create({
+          data: {
+            sessionUuid: sessionUuid,
+            originalName: req.file.originalname,
+            storedPath: req.file.path,
+            size: req.file.size,
+            mimeType: req.file.mimetype || "text/plain",
+          },
+        }),
+        prisma.analysis.update({
+          where: { sessionUuid },
+          data: {
+            status: "FILE_UPLOADED",
+          },
+        }),
+      ]);
 
       res.status(200).json({
         sessionUuid: updatedAnalysis.sessionUuid,
