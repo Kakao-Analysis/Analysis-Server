@@ -61,7 +61,7 @@ router.get("/analysis/:sessionUuid", async (req, res) => {
  * 옵션 아이템 조회
  */
 router.get("/options", async (req, res) => {
-  const { category } = req.query;
+  let { category } = req.query;
 
   // Validation: category는 필수
   if (!category) {
@@ -70,6 +70,34 @@ router.get("/options", async (req, res) => {
       message: "category query parameter is required",
     });
   }
+
+  // Validation: category가 배열이면 400
+  if (Array.isArray(category)) {
+    return res.status(400).json({
+      error: "Bad Request",
+      message: "category must be a single value, not an array",
+    });
+  }
+
+  // Validation: category가 string이 아니면 400
+  if (typeof category !== "string") {
+    return res.status(400).json({
+      error: "Bad Request",
+      message: "category must be a string",
+    });
+  }
+
+  // 정규화: trim 후 빈 문자열이면 400
+  category = category.trim();
+  if (category === "") {
+    return res.status(400).json({
+      error: "Bad Request",
+      message: "category cannot be empty",
+    });
+  }
+
+  // 정규화: 대문자로 변환
+  category = category.toUpperCase();
 
   // Validation: category 값은 EMPATHY | SELECT1 | SELECT2 만 허용
   const validCategories = ["EMPATHY", "SELECT1", "SELECT2"];

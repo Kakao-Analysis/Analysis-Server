@@ -28,5 +28,6 @@ model OptionItem {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  @@unique([category, code])
   @@index([category, sortOrder, id])
 }
