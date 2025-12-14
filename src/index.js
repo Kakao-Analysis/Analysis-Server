@@ -20,20 +20,9 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 // 3) 실제 API 라우트
 app.use('/api', analysesRouter);
 
-// 4) 건강 체크용
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok' });
-});
-
-// 5) 404 에러 핸들러
-app.use((req, res) => {
-  res.status(404).json({ error: 'Not Found' });
-});
-
-// 6) 500 에러 핸들러
-app.use((err, req, res, next) => {
-  console.error(err);
-  res.status(500).json({ error: 'Internal Server Error' });
+// 4) 서버 상태 체크용
+app.get('/ping', (req, res) => {
+  res.json({ message: 'pong' });
 });
 
 const PORT = 3000;
