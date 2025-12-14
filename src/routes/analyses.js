@@ -385,4 +385,136 @@ router.post(
   }
 );
 
+/**
+ * POST /api/analysis/:sessionUuid/run
+ * 분석 실행
+ */
+router.post("/analysis/:sessionUuid/run", async (req, res) => {
+  const { sessionUuid } = req.params;
+  const { agreeTerms, agreePrivacy } = req.body;
+
+  try {
+    // Validation: Body 필수값 검증
+    if (agreeTerms !== true || agreePrivacy !== true) {
+      return res.status(400).json({
+        error: "Bad Request",
+        message: "agreeTerms and agreePrivacy must be true",
+      });
+    }
+
+    // Analysis 조회
+    const analysis = await prisma.analysis.findUnique({
+      where: { sessionUuid },
+    });
+
+    if (!analysis) {
+      return res.status(404).json({ ok: false, error: "NOT_FOUND" });
+    }
+
+    // AnalysisFile에서 최신 파일 조회
+    const latestFile = await prisma.analysisFile.findFirst({
+      where: { sessionUuid },
+      orderBy: { createdAt: "desc" },
+    });
+
+    if (!latestFile) {
+      return res.status(400).json({
+        error: "Bad Request",
+        message: "file is required",
+      });
+    }
+
+    // status를 "PROCESSING"으로 업데이트
+    await prisma.analysis.update({
+      where: { sessionUuid },
+      data: {
+        status: "PROCESSING",
+      },
+    });
+
+    // 파일 읽기 및 최소 파싱 (stub)
+    let lineCount = 0;
+    let messageCount = 0;
+    let participants = ["나", "상대"];
+
+    try {
+      const fileContent = fs.readFileSync(latestFile.storedPath, "utf-8");
+      const lines = fileContent.split("\n").filter((line) => line.trim() !== "");
+      lineCount = lines.length;
+      messageCount = lineCount;
+
+      // 간단한 파싱 시도 (카카오톡 대화 형식)
+      // 예: "2024. 1. 1. 오후 1:00, 나: 안녕"
+      const participantSet = new Set();
+      for (const line of lines) {
+        // 간단한 패턴 매칭 시도
+        const match = line.match(/,\s*([^:]+):\s*(.+)/);
+        if (match) {
+          participantSet.add(match[1].trim());
+        }
+      }
+
+      if (participantSet.size > 0) {
+        participants = Array.from(participantSet);
+      }
+    } catch (fileError) {
+      console.error("Error reading file:", fileError);
+      // 파싱 실패 시 기본값 유지
+    }
+
+    // 결과 객체 생성
+    const resultObject = {
+      summaryText: `총 ${lineCount}줄의 대화를 분석했습니다.`,
+      userViewText: null,
+      partnerViewText: null,
+      adviceText: null,
+      scores: {
+        positivity: 50,
+        interest: 50,
+        balance: 50,
+      },
+      charts: {},
+      details: {
+        lineCount,
+        messageCount,
+        participants,
+      },
+    };
+
+    // resultJson 저장 및 status를 "DONE"으로 업데이트
+    await prisma.analysis.update({
+      where: { sessionUuid },
+      data: {
+        resultJson: JSON.stringify(resultObject),
+        status: "DONE",
+      },
+    });
+
+    // 응답은 202 + PROCESSING 상태로 반환 (스펙 준수)
+    res.status(202).json({
+      sessionUuid: sessionUuid,
+      status: "PROCESSING",
+    });
+  } catch (error) {
+    console.error("Error running analysis:", error);
+
+    // 에러 발생 시 status를 "FAILED"로 업데이트 시도
+    try {
+      await prisma.analysis.update({
+        where: { sessionUuid },
+        data: {
+          status: "FAILED",
+        },
+      });
+    } catch (updateError) {
+      console.error("Error updating status to FAILED:", updateError);
+    }
+
+    res.status(500).json({
+      error: "Internal Server Error",
+      message: "Failed to run analysis",
+    });
+  }
+});
+
 module.exports = router;
