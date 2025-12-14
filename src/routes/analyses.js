@@ -9,22 +9,35 @@ const router = express.Router();
  * 세션 생성 -> DB 저장
  */
 router.post("/analysis", async (req, res) => {
+  const { userName, partnerName, questionText } = req.body;
+
+  // Validation: 3개 필드 모두 필수
+  if (!userName || !partnerName || !questionText) {
+    return res.status(400).json({
+      error: "Bad Request",
+      message: "userName, partnerName, questionText are required",
+    });
+  }
+
   const sessionUuid = randomUUID();
+  const empathyPreviewText = "지금 대화를 차분히 살펴보고 있어요.";
 
   const row = await prisma.analysis.create({
     data: {
       sessionUuid,
-      status: "DRAFT",
+      status: "CREATED",
+      userName,
+      partnerName,
+      questionText,
+      empathyPreviewText,
     },
   });
 
   res.status(201).json({
-    ok: true,
-    data: {
-      sessionUuid: row.sessionUuid,
-      status: row.status,
-      createdAt: row.createdAt,
-    },
+    sessionId: row.id,
+    sessionUuid: row.sessionUuid,
+    status: row.status,
+    empathyPreviewText: row.empathyPreviewText,
   });
 });
 
