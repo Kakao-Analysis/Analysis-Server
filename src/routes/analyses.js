@@ -1,8 +1,37 @@
 const express = require("express");
 const { prisma } = require("../db/prisma");
 const { randomUUID } = require("crypto");
+const multer = require("multer");
+const path = require("path");
+const fs = require("fs");
 
 const router = express.Router();
+
+// uploads 디렉토리 생성 (없으면)
+const uploadsDir = path.join(__dirname, "..", "..", "uploads");
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+// multer 설정
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, uploadsDir);
+  },
+  filename: (req, file, cb) => {
+    const { sessionUuid } = req.params;
+    const timestamp = Date.now();
+    const ext = path.extname(file.originalname) || ".txt";
+    cb(null, `${sessionUuid}_${timestamp}${ext}`);
+  },
+});
+
+const upload = multer({
+  storage: storage,
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB
+  },
+});
 
 /**
  * OptionItem 검증 헬퍼 함수
@@ -275,5 +304,91 @@ router.patch("/analysis/:sessionUuid/options", async (req, res) => {
     });
   }
 });
+
+/**
+ * POST /api/analysis/:sessionUuid/upload
+ * 파일 업로드
+ */
+router.post(
+  "/analysis/:sessionUuid/upload",
+  upload.single("file"),
+  async (req, res) => {
+    const { sessionUuid } = req.params;
+
+    try {
+      // Validation: file 누락 검증
+      if (!req.file) {
+        return res.status(400).json({
+          error: "Bad Request",
+          message: "file is required",
+        });
+      }
+
+      // Validation: 파일 확장자/타입 검증 (.txt 또는 text/plain)
+      const allowedExtensions = [".txt"];
+      const allowedMimeTypes = ["text/plain"];
+      const fileExt = path.extname(req.file.originalname).toLowerCase();
+      const mimeType = req.file.mimetype;
+
+      if (
+        !allowedExtensions.includes(fileExt) &&
+        !allowedMimeTypes.includes(mimeType)
+      ) {
+        // 업로드된 파일 삭제
+        fs.unlinkSync(req.file.path);
+        return res.status(400).json({
+          error: "Bad Request",
+          message: "Only .txt files are allowed",
+        });
+      }
+
+      // Analysis 조회
+      const analysis = await prisma.analysis.findUnique({
+        where: { sessionUuid },
+      });
+
+      if (!analysis) {
+        // 업로드된 파일 삭제
+        fs.unlinkSync(req.file.path);
+        return res.status(404).json({ ok: false, error: "NOT_FOUND" });
+      }
+
+      // AnalysisFile 생성
+      const fileRecord = await prisma.analysisFile.create({
+        data: {
+          sessionUuid: sessionUuid,
+          originalName: req.file.originalname,
+          storedPath: req.file.path,
+          size: req.file.size,
+          mimeType: req.file.mimetype || "text/plain",
+        },
+      });
+
+      // Analysis.status를 "FILE_UPLOADED"로 업데이트
+      const updatedAnalysis = await prisma.analysis.update({
+        where: { sessionUuid },
+        data: {
+          status: "FILE_UPLOADED",
+        },
+      });
+
+      res.status(200).json({
+        sessionUuid: updatedAnalysis.sessionUuid,
+        fileId: fileRecord.id,
+        status: updatedAnalysis.status,
+      });
+    } catch (error) {
+      // 에러 발생 시 업로드된 파일 삭제
+      if (req.file && fs.existsSync(req.file.path)) {
+        fs.unlinkSync(req.file.path);
+      }
+      console.error("Error uploading file:", error);
+      res.status(500).json({
+        error: "Internal Server Error",
+        message: "Failed to upload file",
+      });
+    }
+  }
+);
 
 module.exports = router;
