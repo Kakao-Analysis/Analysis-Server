@@ -48,10 +48,7 @@ async function getAnalysis(req, res) {
     if (!data) {
       return res.status(404).json({ ok: false, error: "NOT_FOUND" });
     }
-    res.json({
-      ok: true,
-      data,
-    });
+    res.json(data);
   } catch (error) {
     console.error("Error fetching analysis:", error);
     res.status(500).json({
@@ -155,10 +152,7 @@ async function getPaymentStatus(req, res) {
 
   try {
     const data = await analysisService.getPaymentStatus(sessionUuid);
-    res.status(200).json({
-      ok: true,
-      ...data,
-    });
+    res.status(200).json(data);
   } catch (error) {
     if (error.message === "NOT_FOUND") {
       return res.status(404).json({ ok: false, error: "NOT_FOUND" });

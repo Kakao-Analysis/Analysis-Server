@@ -29,6 +29,9 @@ async function getAnalysis(sessionUuid) {
     return null;
   }
 
+  const latestPayment = await analysisRepository.findLatestPaymentBySessionUuid(sessionUuid);
+  const isPaid = analysis.isPaid || false;
+
   let optionsJson = {};
   if (analysis.optionsJson) {
     try {
@@ -55,36 +58,19 @@ async function getAnalysis(sessionUuid) {
     }
   }
 
-  if (!analysis.isPaid) {
-    return {
-      locked: true,
-      paymentRequired: true,
-      preview: {
-        sessionUuid: analysis.sessionUuid,
-        status: analysis.status,
-        userName: analysis.userName,
-        partnerName: analysis.partnerName,
-        questionText: analysis.questionText,
-      },
-    };
-  }
-
   return {
-    locked: false,
-    unlockedAt: analysis.unlockedAt ? analysis.unlockedAt.toISOString() : null,
-    result: {
-      sessionUuid: analysis.sessionUuid,
-      status: analysis.status,
-      userName: analysis.userName,
-      partnerName: analysis.partnerName,
-      questionText: analysis.questionText,
-      empathy: optionsJson.empathy || null,
-      select1: optionsJson.select1 || null,
-      select2: optionsJson.select2 || null,
-      result: resultJson,
-      createdAt: analysis.createdAt.toISOString(),
-      updatedAt: analysis.updatedAt.toISOString(),
-    },
+    sessionUuid: analysis.sessionUuid,
+    status: analysis.status,
+    isPaid,
+    userName: analysis.userName,
+    partnerName: analysis.partnerName,
+    questionText: analysis.questionText,
+    empathy: optionsJson.empathy || null,
+    select1: optionsJson.select1 || null,
+    select2: optionsJson.select2 || null,
+    result: resultJson,
+    createdAt: analysis.createdAt.toISOString(),
+    updatedAt: analysis.updatedAt.toISOString(),
   };
 }
 
@@ -264,8 +250,13 @@ async function getPaymentStatus(sessionUuid) {
     throw new Error("NOT_FOUND");
   }
 
+  const latestPayment = await analysisRepository.findLatestPaymentBySessionUuid(sessionUuid);
+
   return {
-    paid: analysis.isPaid || false,
+    sessionUuid: analysis.sessionUuid,
+    isPaid: analysis.isPaid || false,
+    lastPaymentStatus: latestPayment?.status || "PENDING",
+    lastPaidAt: latestPayment?.paidAt ? latestPayment.paidAt.toISOString() : null,
   };
 }
 
