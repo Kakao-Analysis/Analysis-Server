@@ -59,7 +59,7 @@ async function processPaymentWebhook(paymentId, status, rawPayload) {
 
   const payment = await paymentRepository.findPaymentById(paymentId);
   if (!payment) {
-    throw new Error(`Payment with id ${paymentId} not found`);
+    throw new Error("NOT_FOUND");
   }
 
   validatePaymentStatus(status);
