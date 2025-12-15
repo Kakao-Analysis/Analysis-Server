@@ -29,7 +29,6 @@ async function getAnalysis(sessionUuid) {
     return null;
   }
 
-  const latestPayment = await analysisRepository.findLatestPaymentBySessionUuid(sessionUuid);
   const isPaid = analysis.isPaid || false;
 
   let optionsJson = {};
