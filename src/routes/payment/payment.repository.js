@@ -43,10 +43,52 @@ async function updatePaymentStatus(id, status, paidAt, rawPayloadJson) {
   });
 }
 
+async function markPaymentPaidAndUnlockAnalysis(paymentId, rawPayloadJson) {
+  return await prisma.$transaction(async (tx) => {
+    const payment = await tx.payment.findUnique({
+      where: { id: paymentId },
+    });
+
+    if (!payment) {
+      throw new Error("NOT_FOUND");
+    }
+
+    const analysis = await tx.analysis.findUnique({
+      where: { sessionUuid: payment.sessionUuid },
+    });
+
+    if (!analysis) {
+      throw new Error("ANALYSIS_NOT_FOUND");
+    }
+
+    const now = new Date();
+
+    const updatedPayment = await tx.payment.update({
+      where: { id: paymentId },
+      data: {
+        status: "PAID",
+        paidAt: now,
+        rawPayloadJson: rawPayloadJson ? JSON.stringify(rawPayloadJson) : null,
+      },
+    });
+
+    await tx.analysis.update({
+      where: { sessionUuid: payment.sessionUuid },
+      data: {
+        isPaid: true,
+        unlockedAt: now,
+      },
+    });
+
+    return updatedPayment;
+  });
+}
+
 module.exports = {
   findAnalysisBySessionUuid,
   createPayment,
   updatePaymentPayUrl,
   findPaymentById,
   updatePaymentStatus,
+  markPaymentPaidAndUnlockAnalysis,
 };

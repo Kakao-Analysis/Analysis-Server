@@ -14,8 +14,8 @@ function validateProvider(provider) {
 }
 
 function validatePaymentStatus(status) {
-  if (status !== "SUCCESS" && status !== "FAILED") {
-    throw new Error(`status must be SUCCESS or FAILED, got: ${status}`);
+  if (status !== "SUCCESS" && status !== "FAILED" && status !== "PAID") {
+    throw new Error(`status must be SUCCESS, FAILED, or PAID, got: ${status}`);
   }
 }
 
@@ -57,15 +57,17 @@ async function processPaymentWebhook(paymentId, status, rawPayload) {
     throw new Error("paymentId is required");
   }
 
-  const payment = await paymentRepository.findPaymentById(paymentId);
-  if (!payment) {
-    throw new Error("NOT_FOUND");
-  }
-
   validatePaymentStatus(status);
 
-  const paidAt = status === "SUCCESS" ? new Date() : null;
-  await paymentRepository.updatePaymentStatus(paymentId, status, paidAt, rawPayload);
+  if (status === "SUCCESS" || status === "PAID") {
+    await paymentRepository.markPaymentPaidAndUnlockAnalysis(paymentId, rawPayload);
+  } else {
+    const payment = await paymentRepository.findPaymentById(paymentId);
+    if (!payment) {
+      throw new Error("NOT_FOUND");
+    }
+    await paymentRepository.updatePaymentStatus(paymentId, status, null, rawPayload);
+  }
 
   return { ok: true };
 }

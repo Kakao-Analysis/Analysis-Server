@@ -29,9 +29,6 @@ async function getAnalysis(sessionUuid) {
     return null;
   }
 
-  const latestPayment = await analysisRepository.findLatestPaymentBySessionUuid(sessionUuid);
-  const isPaid = latestPayment?.status === "SUCCESS" || false;
-
   let optionsJson = {};
   if (analysis.optionsJson) {
     try {
@@ -58,19 +55,36 @@ async function getAnalysis(sessionUuid) {
     }
   }
 
+  if (!analysis.isPaid) {
+    return {
+      locked: true,
+      paymentRequired: true,
+      preview: {
+        sessionUuid: analysis.sessionUuid,
+        status: analysis.status,
+        userName: analysis.userName,
+        partnerName: analysis.partnerName,
+        questionText: analysis.questionText,
+      },
+    };
+  }
+
   return {
-    sessionUuid: analysis.sessionUuid,
-    status: analysis.status,
-    isPaid,
-    userName: analysis.userName,
-    partnerName: analysis.partnerName,
-    questionText: analysis.questionText,
-    empathy: optionsJson.empathy || null,
-    select1: optionsJson.select1 || null,
-    select2: optionsJson.select2 || null,
-    result: resultJson,
-    createdAt: analysis.createdAt.toISOString(),
-    updatedAt: analysis.updatedAt.toISOString(),
+    locked: false,
+    unlockedAt: analysis.unlockedAt ? analysis.unlockedAt.toISOString() : null,
+    result: {
+      sessionUuid: analysis.sessionUuid,
+      status: analysis.status,
+      userName: analysis.userName,
+      partnerName: analysis.partnerName,
+      questionText: analysis.questionText,
+      empathy: optionsJson.empathy || null,
+      select1: optionsJson.select1 || null,
+      select2: optionsJson.select2 || null,
+      result: resultJson,
+      createdAt: analysis.createdAt.toISOString(),
+      updatedAt: analysis.updatedAt.toISOString(),
+    },
   };
 }
 
@@ -250,22 +264,8 @@ async function getPaymentStatus(sessionUuid) {
     throw new Error("NOT_FOUND");
   }
 
-  const latestPayment = await analysisRepository.findLatestPaymentBySessionUuid(sessionUuid);
-
-  if (!latestPayment) {
-    return {
-      sessionUuid,
-      isPaid: false,
-      lastPaymentStatus: "PENDING",
-      lastPaidAt: null,
-    };
-  }
-
   return {
-    sessionUuid,
-    isPaid: latestPayment.status === "SUCCESS",
-    lastPaymentStatus: latestPayment.status,
-    lastPaidAt: latestPayment.paidAt ? latestPayment.paidAt.toISOString() : null,
+    paid: analysis.isPaid || false,
   };
 }
 
