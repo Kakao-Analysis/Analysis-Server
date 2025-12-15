@@ -1,7 +1,7 @@
 const paymentRepository = require("./payment.repository");
 
 function validateAmount(amount) {
-  if (typeof amount !== "number" || amount <= 0) {
+  if (typeof amount !== "number" || !Number.isFinite(amount) || amount <= 0) {
     throw new Error("amount must be a positive number");
   }
 }
@@ -29,7 +29,15 @@ async function startPayment(sessionUuid, amount, provider) {
   validateProvider(provider);
 
   const payment = await paymentRepository.createPayment(sessionUuid, amount, provider);
-  const baseUrl = process.env.PAYMENTS_BASE_URL || "http://localhost:3000";
+  
+  let baseUrl = process.env.PAYMENTS_BASE_URL;
+  if (!baseUrl) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("PAYMENTS_BASE_URL environment variable is required in production");
+    }
+    console.warn("PAYMENTS_BASE_URL is not set, using default http://localhost:3000");
+    baseUrl = "http://localhost:3000";
+  }
   const payUrl = `${baseUrl}/payments/mock/${payment.id}`;
   const updatedPayment = await paymentRepository.updatePaymentPayUrl(
     payment.id,

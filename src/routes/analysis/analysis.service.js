@@ -171,6 +171,9 @@ async function uploadAnalysisFile(sessionUuid, file) {
 }
 
 async function runAnalysis(sessionUuid, agreeTerms, agreePrivacy) {
+  if (agreeTerms !== true || agreePrivacy !== true) {
+    throw new Error("agreeTerms and agreePrivacy must be true");
+  }
 
   const analysis = await analysisRepository.findAnalysisBySessionUuid(sessionUuid);
   if (!analysis) {
