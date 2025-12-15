@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "Analysis" ADD COLUMN "isPaid" BOOLEAN NOT NULL DEFAULT 0;
+ALTER TABLE "Analysis" ADD COLUMN "unlockedAt" DATETIME;

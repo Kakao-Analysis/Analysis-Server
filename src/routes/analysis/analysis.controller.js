@@ -155,7 +155,10 @@ async function getPaymentStatus(req, res) {
 
   try {
     const data = await analysisService.getPaymentStatus(sessionUuid);
-    res.status(200).json(data);
+    res.status(200).json({
+      ok: true,
+      ...data,
+    });
   } catch (error) {
     if (error.message === "NOT_FOUND") {
       return res.status(404).json({ ok: false, error: "NOT_FOUND" });

@@ -21,6 +21,14 @@ async function startPayment(req, res) {
 async function processPaymentWebhook(req, res) {
   try {
     const { paymentId, status } = req.body;
+
+    if (paymentId === undefined || paymentId === null) {
+      return res.status(400).json({
+        error: "Bad Request",
+        message: "paymentId is required",
+      });
+    }
+
     const data = await paymentService.processPaymentWebhook(paymentId, status, req.body);
     res.status(200).json(data);
   } catch (error) {
@@ -31,9 +39,9 @@ async function processPaymentWebhook(req, res) {
       });
     }
     console.error("Error processing payment webhook:", error);
-    res.status(400).json({
-      error: "Bad Request",
-      message: error.message,
+    res.status(500).json({
+      ok: false,
+      error: "INTERNAL_SERVER_ERROR",
     });
   }
 }
