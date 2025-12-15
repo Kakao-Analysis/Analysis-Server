@@ -29,9 +29,11 @@ async function startPayment(sessionUuid, amount, provider) {
   validateProvider(provider);
 
   const payment = await paymentRepository.createPayment(sessionUuid, amount, provider);
+  const baseUrl = process.env.PAYMENTS_BASE_URL || "http://localhost:3000";
+  const payUrl = `${baseUrl}/payments/mock/${payment.id}`;
   const updatedPayment = await paymentRepository.updatePaymentPayUrl(
     payment.id,
-    `http://localhost:3000/payments/mock/${payment.id}`
+    payUrl
   );
 
   return {

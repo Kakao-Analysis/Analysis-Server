@@ -32,8 +32,31 @@ async function getAnalysis(sessionUuid) {
   const latestPayment = await analysisRepository.findLatestPaymentBySessionUuid(sessionUuid);
   const isPaid = latestPayment?.status === "SUCCESS" || false;
 
-  const optionsJson = analysis.optionsJson ? JSON.parse(analysis.optionsJson) : {};
-  const resultJson = analysis.resultJson ? JSON.parse(analysis.resultJson) : null;
+  let optionsJson = {};
+  if (analysis.optionsJson) {
+    try {
+      optionsJson = JSON.parse(analysis.optionsJson);
+    } catch (error) {
+      console.error(
+        `Error parsing optionsJson for sessionUuid: ${sessionUuid}`,
+        error
+      );
+      optionsJson = {};
+    }
+  }
+
+  let resultJson = null;
+  if (analysis.resultJson) {
+    try {
+      resultJson = JSON.parse(analysis.resultJson);
+    } catch (error) {
+      console.error(
+        `Error parsing resultJson for sessionUuid: ${sessionUuid}`,
+        error
+      );
+      resultJson = null;
+    }
+  }
 
   return {
     sessionUuid: analysis.sessionUuid,
@@ -123,27 +146,31 @@ async function uploadAnalysisFile(sessionUuid, file) {
     throw new Error("NOT_FOUND");
   }
 
-  const [fileRecord, updatedAnalysis] = await analysisRepository.createAnalysisFileAndUpdateStatus(
-    sessionUuid,
-    {
-      originalName: file.originalname,
-      storedPath: file.path,
-      size: file.size,
-      mimeType: file.mimetype,
-    }
-  );
+  try {
+    const [fileRecord, updatedAnalysis] = await analysisRepository.createAnalysisFileAndUpdateStatus(
+      sessionUuid,
+      {
+        originalName: file.originalname,
+        storedPath: file.path,
+        size: file.size,
+        mimeType: file.mimetype,
+      }
+    );
 
-  return {
-    sessionUuid: updatedAnalysis.sessionUuid,
-    fileId: fileRecord.id,
-    status: updatedAnalysis.status,
-  };
+    return {
+      sessionUuid: updatedAnalysis.sessionUuid,
+      fileId: fileRecord.id,
+      status: updatedAnalysis.status,
+    };
+  } catch (error) {
+    if (fs.existsSync(file.path)) {
+      await fs.promises.unlink(file.path).catch(() => {});
+    }
+    throw error;
+  }
 }
 
 async function runAnalysis(sessionUuid, agreeTerms, agreePrivacy) {
-  if (agreeTerms !== true || agreePrivacy !== true) {
-    throw new Error("agreeTerms and agreePrivacy must be true");
-  }
 
   const analysis = await analysisRepository.findAnalysisBySessionUuid(sessionUuid);
   if (!analysis) {

@@ -115,6 +115,20 @@ async function runAnalysis(req, res) {
   const { sessionUuid } = req.params;
   const { agreeTerms, agreePrivacy } = req.body;
 
+  if (typeof agreeTerms !== "boolean" || typeof agreePrivacy !== "boolean") {
+    return res.status(400).json({
+      error: "Bad Request",
+      message: "agreeTerms and agreePrivacy must be boolean values",
+    });
+  }
+
+  if (agreeTerms !== true || agreePrivacy !== true) {
+    return res.status(400).json({
+      error: "Bad Request",
+      message: "agreeTerms and agreePrivacy must be true",
+    });
+  }
+
   try {
     const data = await analysisService.runAnalysis(sessionUuid, agreeTerms, agreePrivacy);
     res.status(200).json(data);

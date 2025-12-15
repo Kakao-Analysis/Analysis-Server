@@ -5,4 +5,4 @@ const router = express.Router();
 
 router.get("/options", optionController.getOptionItems);
 
-module.exports = { router };
+module.exports = router;
