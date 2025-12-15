@@ -11,6 +11,9 @@ model Analysis {
   id          Int      @id @default(autoincrement())
   sessionUuid String   @unique
   status      String   @default("DRAFT")
+  userName    String?
+  partnerName String?
+  questionText String?
   optionsJson String?
   resultJson  String?
   createdAt   DateTime @default(now())

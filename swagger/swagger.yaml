@@ -127,8 +127,8 @@ paths:
             schema:
               $ref: '#/components/schemas/RunAnalysisRequest'
       responses:
-        '202':
-          description: Analysis started
+        '200':
+          description: Analysis completed
           content:
             application/json:
               schema:

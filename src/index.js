@@ -4,7 +4,7 @@ const swaggerUi = require('swagger-ui-express');
 const YAML = require('yamljs');
 const path = require('path');
 
-const analysesRouter = require('./routes/analyses');
+const apiRouter = require('./routes');
 
 const app = express();
 app.use(express.json());
@@ -18,7 +18,7 @@ const swaggerDocument = YAML.load(
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 // 3) 실제 API 라우트
-app.use('/api', analysesRouter);
+app.use('/api', apiRouter);
 
 // 4) 서버 상태 체크용
 
