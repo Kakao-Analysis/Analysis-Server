@@ -32,7 +32,7 @@ async function processPaymentWebhook(req, res) {
     const data = await paymentService.processPaymentWebhook(paymentId, status, req.body);
     res.status(200).json(data);
   } catch (error) {
-    if (error.message === "NOT_FOUND") {
+    if (error.message === "NOT_FOUND" || error.message === "ANALYSIS_NOT_FOUND") {
       return res.status(404).json({
         ok: false,
         error: "NOT_FOUND",

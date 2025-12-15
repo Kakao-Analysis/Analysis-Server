@@ -53,6 +53,14 @@ async function markPaymentPaidAndUnlockAnalysis(paymentId, rawPayloadJson) {
       throw new Error("NOT_FOUND");
     }
 
+    const analysis = await tx.analysis.findUnique({
+      where: { sessionUuid: payment.sessionUuid },
+    });
+
+    if (!analysis) {
+      throw new Error("ANALYSIS_NOT_FOUND");
+    }
+
     const now = new Date();
 
     const updatedPayment = await tx.payment.update({
