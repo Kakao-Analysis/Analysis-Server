@@ -24,16 +24,16 @@ async function processPaymentWebhook(req, res) {
     const data = await paymentService.processPaymentWebhook(paymentId, status, req.body);
     res.status(200).json(data);
   } catch (error) {
-    if (error.message.includes("not found")) {
+    if (error.message === "NOT_FOUND") {
       return res.status(404).json({
         error: "Not Found",
         message: error.message,
       });
     }
     console.error("Error processing payment webhook:", error);
-    res.status(400).json({
-      error: "Bad Request",
-      message: error.message,
+    res.status(500).json({
+      error: "Internal Server Error",
+      message: "Failed to process payment webhook",
     });
   }
 }

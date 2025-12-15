@@ -27,7 +27,10 @@ async function createAnalysis(req, res) {
 
   try {
     const data = await analysisService.createAnalysis(userName, partnerName, questionText);
-    res.status(201).json(data);
+    res.status(201).json({
+      ok: true,
+      data,
+    });
   } catch (error) {
     console.error("Error creating analysis:", error);
     res.status(500).json({
@@ -45,7 +48,10 @@ async function getAnalysis(req, res) {
     if (!data) {
       return res.status(404).json({ ok: false, error: "NOT_FOUND" });
     }
-    res.json(data);
+    res.json({
+      ok: true,
+      data,
+    });
   } catch (error) {
     console.error("Error fetching analysis:", error);
     res.status(500).json({
