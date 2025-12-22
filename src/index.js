@@ -1,5 +1,7 @@
 // src/index.js
+require("dotenv").config();
 const express = require('express');
+const cors = require("cors"); //추가했어용
 const swaggerUi = require('swagger-ui-express');
 const YAML = require('yamljs');
 const path = require('path');
@@ -7,6 +9,13 @@ const path = require('path');
 const apiRouter = require('./routes');
 
 const app = express();
+
+app.use(cors({
+  origin: "http://localhost:1223",
+  credentials: true,
+})); //추가
+
+
 app.use(express.json());
 
 // 1) YAML 스펙 로드 (swagger/swagger.yaml 위치)
