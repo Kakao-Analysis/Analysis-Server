@@ -69,7 +69,7 @@
 ```bash
 npm install
 npx prisma init --datasource-provider sqlite
-//.env 파일 설정 DATABASE_URL="file:./dev.db"
+##.env 파일 설정 DATABASE_URL="file:./dev.db"
 npx prisma db pull
 npx prisma generate
 npm run dev
