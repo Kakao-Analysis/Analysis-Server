@@ -258,6 +258,19 @@ async function getPaymentStatus(sessionUuid) {
     lastPaidAt: latestPayment?.paidAt ? latestPayment.paidAt.toISOString() : null,
   };
 }
+//  추가 달라짐
+async function updateAnalysisBasic(sessionUuid, data) {
+  const analysis =
+    await analysisRepository.findAnalysisBySessionUuid(sessionUuid);
+
+  if (!analysis) {
+    throw new Error("NOT_FOUND");
+  }
+
+  return await analysisRepository.updateAnalysisBasic(sessionUuid, data);
+}
+
+
 
 module.exports = {
   createAnalysis,
@@ -266,4 +279,5 @@ module.exports = {
   uploadAnalysisFile,
   runAnalysis,
   getPaymentStatus,
+ updateAnalysisBasic, //추가댐
 };

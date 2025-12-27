@@ -81,13 +81,24 @@ async function createAnalysisFileAndUpdateStatus(sessionUuid, fileData) {
   ]);
 }
 
+// 추가 달라짐
+async function updateAnalysisBasic(sessionUuid, data) {
+  return await prisma.analysis.update({
+    where: { sessionUuid },
+    data,
+  });
+}
+
 module.exports = {
   createAnalysis,
   findAnalysisBySessionUuid,
   updateAnalysisOptions,
   updateAnalysisStatus,
   updateAnalysisResult,
+  updateAnalysisBasic, //추가됨
   findLatestPaymentBySessionUuid,
   findLatestAnalysisFileBySessionUuid,
   createAnalysisFileAndUpdateStatus,
 };
+
+

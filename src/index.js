@@ -1,6 +1,9 @@
+
 require("dotenv").config();
 const express = require('express');
 const cors = require('cors');
+=======
+
 const swaggerUi = require('swagger-ui-express');
 const YAML = require('yamljs');
 const path = require('path');
@@ -9,14 +12,14 @@ const apiRouter = require('./routes');
 
 const app = express();
 
-const corsOptions = {
-  origin: process.env.CORS_ORIGIN || 'http://localhost:1223',
-  methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'Authorization'],
-  credentials: true
-};
 
-app.use(cors(corsOptions));
+=======
+app.use(cors({
+  origin: "http://localhost:1223",
+  credentials: true,
+})); //추가
+
+
 
 app.use(express.json());
 
