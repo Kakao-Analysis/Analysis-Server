@@ -1,7 +1,9 @@
-// src/index.js
+
 require("dotenv").config();
 const express = require('express');
-const cors = require("cors"); //추가했어용
+const cors = require('cors');
+=======
+
 const swaggerUi = require('swagger-ui-express');
 const YAML = require('yamljs');
 const path = require('path');
@@ -10,10 +12,13 @@ const apiRouter = require('./routes');
 
 const app = express();
 
+
+=======
 app.use(cors({
   origin: "http://localhost:1223",
   credentials: true,
 })); //추가
+
 
 
 app.use(express.json());
@@ -35,7 +40,7 @@ app.get('/ping', (req, res) => {
   res.json({ message: 'pong' });
 });
 
-const PORT = 3000;
+const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
   console.log(`Swagger UI available at http://localhost:${PORT}/api-docs`);
