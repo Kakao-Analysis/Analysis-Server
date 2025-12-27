@@ -10,7 +10,9 @@ MYSQL_PORT="${MYSQL_PORT:-3306}"
 
 if [ -f "schema.sql" ]; then
   echo "schema.sql 파일을 실행합니다..."
-  mysql -h "$MYSQL_HOST" -P "$MYSQL_PORT" -u "$MYSQL_USER" -p"$MYSQL_PASSWORD" "$MYSQL_DATABASE" < schema.sql
+  export MYSQL_PWD="$MYSQL_PASSWORD"
+  mysql -h "$MYSQL_HOST" -P "$MYSQL_PORT" -u "$MYSQL_USER" "$MYSQL_DATABASE" < schema.sql
+  unset MYSQL_PWD
   echo "완료!"
 else
   echo "오류: schema.sql 파일을 찾을 수 없습니다."
