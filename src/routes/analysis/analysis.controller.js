@@ -4,6 +4,7 @@ const analysisService = require("./analysis.service");
 async function createAnalysis(req, res) {
   const { userName, partnerName, questionText } = req.body;
 
+  //  1단계에서는 userName만 필수
   if (!userName || typeof userName !== "string" || userName.trim() === "") {
     return res.status(400).json({
       error: "Bad Request",
@@ -11,22 +12,16 @@ async function createAnalysis(req, res) {
     });
   }
 
-  if (!partnerName || typeof partnerName !== "string" || partnerName.trim() === "") {
-    return res.status(400).json({
-      error: "Bad Request",
-      message: "partnerName is required and must be a non-empty string",
-    });
-  }
-
-  if (!questionText || typeof questionText !== "string" || questionText.trim() === "") {
-    return res.status(400).json({
-      error: "Bad Request",
-      message: "questionText is required and must be a non-empty string",
-    });
-  }
+  //  변경됨: partnerName 검증 제거 (나중 단계에서 받음)
+  //  변경됨: questionText 검증 제거 (나중 단계에서 받음)
 
   try {
-    const data = await analysisService.createAnalysis(userName, partnerName, questionText);
+    const data = await analysisService.createAnalysis(
+      userName,
+      partnerName || "",      //  변경됨: 없으면 빈 문자열
+      questionText || ""      //  변경됨: 없으면 빈 문자열
+    );
+
     res.status(201).json({
       ok: true,
       data,
@@ -165,9 +160,44 @@ async function getPaymentStatus(req, res) {
   }
 }
 
+//추가했습니다.
+async function updateAnalysisBasic(req, res) {
+  const { sessionUuid } = req.params;
+  const { partnerName, questionText } = req.body;
+
+  if (
+    (partnerName !== undefined && typeof partnerName !== "string") ||
+    (questionText !== undefined && typeof questionText !== "string")
+  ) {
+    return res.status(400).json({
+      error: "Bad Request",
+      message: "partnerName / questionText must be string",
+    });
+  }
+
+  try {
+    const data = await analysisService.updateAnalysisBasic(
+      sessionUuid,
+      { partnerName, questionText }
+    );
+    res.status(200).json(data);
+  } catch (error) {
+    if (error.message === "NOT_FOUND") {
+      return res.status(404).json({ ok: false, error: "NOT_FOUND" });
+    }
+
+    console.error("Error updating analysis basic:", error);
+    res.status(500).json({
+      error: "Internal Server Error",
+      message: "Failed to update analysis",
+    });
+  }
+}
+
 module.exports = {
   createAnalysis,
   getAnalysis,
+  updateAnalysisBasic, // 추가했습니다.
   updateAnalysisOptions,
   uploadAnalysisFile,
   runAnalysis,

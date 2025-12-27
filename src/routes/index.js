@@ -7,6 +7,6 @@ const router = express.Router();
 
 router.use(analysisRouter);
 router.use(optionRouter);
-router.use(paymentRouter);
+router.use(paymentRouter); 
 
 module.exports = router;
