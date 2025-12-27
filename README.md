@@ -69,7 +69,9 @@
 ```bash
 npm install
 npx prisma init --datasource-provider sqlite
-npx prisma migrate dev --name init
+##.env 파일 설정 DATABASE_URL="file:./dev.db"
+npx prisma db pull
+npx prisma generate
 npm run dev
 Swagger UI:
 http://localhost:3000/api-docs
